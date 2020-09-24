@@ -19,27 +19,28 @@ namespace BP.AtNinjas.GetOldTrackingData
         private void Execute()
         {
             Comex();
-            Tesoreria();
-            Leasing();
-            Canje();
-            BaseDeDatos();
-            AlianzasComerciales();
-            Custodia();
-            Garantias();
-            GestionDeSoluciones();
+            //Tesoreria();
+            //Leasing();
+            //Canje();
+            //BaseDeDatos();
+            //AlianzasComerciales();
+            //Custodia();
+            //Garantias();
+            //GestionDeSoluciones();
         }
 
         private void Comex()
         {
+            string databasePath = ConfigurationManager.AppSettings["Comex"];
             //ejecutar 6 am
             string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
             try
             {
                 string sql = "SELECT * FROM COMEX WHERE FORMAT(HORA_INGRESO,'yyyyMM') = '" + date + "'";
-                GenerateRawReport(GetData("EMPRESARIAL", sql), "COMEX(?)");
+                GenerateRawReport(GetData(databasePath, sql), "COMEX");
 
                 sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMM') <= '" + date + "'";
-                GenerateRawReport(GetData("EMPRESARIAL", sql), "AUTORIZACION(?)");
+                GenerateRawReport(GetData(databasePath, sql), "AUTORIZACION");
             }
 
             catch (Exception exc)
@@ -172,9 +173,9 @@ namespace BP.AtNinjas.GetOldTrackingData
             }
         }
 
-        private DataTable GetData(string databaseName, string sql)
+        private DataTable GetData(string databasePath, string sql)
         {
-            OleDbConnection cn = new OleDbConnection(ConfigurationManager.ConnectionStrings["AccessConnection"].ToString().Replace("ACCESS_DATABASE", databaseName));
+            OleDbConnection cn = new OleDbConnection(ConfigurationManager.ConnectionStrings["AccessConnection"].ToString().Replace("[databasePath]", databasePath));
 
             try
             {
@@ -201,7 +202,12 @@ namespace BP.AtNinjas.GetOldTrackingData
         {
             try
             {
-                using (var excelPackage = new ExcelPackage())
+                string fileName = "RAW_COMEX_" + string.Format("{0:yyyyMM}", DateTime.Now) + ".xlsx";
+
+                FileInfo excelFile = new FileInfo(Path.Combine(ConfigurationManager.AppSettings["RawReportPath"], fileName));
+
+
+                using (var excelPackage = new ExcelPackage(excelFile))
                 {
                     //var orderedProperties = (from property in typeof(HomologatedTrackingBE).GetProperties()
                     //                         where Attribute.IsDefined(property, typeof(DisplayAttribute))
@@ -219,35 +225,47 @@ namespace BP.AtNinjas.GetOldTrackingData
                     //excelWorksheet.Column(12).Style.Numberformat.Format = "dd/MM/yyyy HH:mm:ss";
                     //excelWorksheet.Column(19).Style.Numberformat.Format = "dd/MM/yyyy HH:mm:ss";
                     //excelWorksheet.Cells["A:U"].AutoFitColumns();
+                    ExcelWorksheet excelWorksheet;
 
-
-                    ExcelWorksheet excelWorksheet = excelPackage.Workbook.Worksheets.Add(sheet);
+                    if (excelPackage.Workbook.Worksheets[sheet] == null)
+                    {
+                        excelWorksheet = excelPackage.Workbook.Worksheets.Add(sheet);
+                    }
+                    else
+                    {
+                        //excelWorksheet = excelPackage.Workbook.Worksheets[sheet];
+                        excelPackage.Workbook.Worksheets.Delete(sheet);
+                        excelWorksheet = excelPackage.Workbook.Worksheets.Add(sheet);
+                    }
 
                     excelWorksheet.Cells["A1"].LoadFromDataTable(dt, true, OfficeOpenXml.Table.TableStyles.Light2);
 
-                    string fileName = "RAW_COMEX_" + string.Format("{0:yyyyMM}", DateTime.Now) + ".xlsx";
+                    //string fileName = "RAW_COMEX_" + string.Format("{0:yyyyMM}", DateTime.Now) + ".xlsx";
 
-                    FileInfo excelFile = new FileInfo(Path.Combine(ConfigurationManager.AppSettings["RawReportPath"], fileName));
+                    //FileInfo excelFile = new FileInfo(Path.Combine(ConfigurationManager.AppSettings["RawReportPath"], fileName));
 
-                    try
-                    {
-                        if (excelFile.Exists)
-                        {
-                            excelFile.Delete();
-                        }
-                        excelPackage.SaveAs(excelFile);
-                    }
-                    catch (IOException)
-                    {
-                        fileName = fileName.Replace(".xlsx", "_" + String.Format("{0:HHmmss}", DateTime.Now) + ".xlsx");
+                    //try
+                    //{
+                    //    if (excelFile.Exists)
+                    //    {
+                    //        excelFile.Delete();
+                    //    }
+                    //    excelPackage.SaveAs(excelFile);
+                    //}
+                    //catch (IOException)
+                    //{
+                    //    fileName = fileName.Replace(".xlsx", "_" + String.Format("{0:HHmmss}", DateTime.Now) + ".xlsx");
 
-                        //Util.Util.LogProceso("El archivo está en uso o hubo algún otro problema que no permite sobreescribir el archivo, se ha generado otro archivo de nombre " + fileName);
+                    //    //Util.Util.LogProceso("El archivo está en uso o hubo algún otro problema que no permite sobreescribir el archivo, se ha generado otro archivo de nombre " + fileName);
 
-                        excelFile = new FileInfo(Path.Combine(ConfigurationManager.AppSettings["RawReportPath"], fileName));
-                        excelPackage.SaveAs(excelFile);
-                    }
+                    //    excelFile = new FileInfo(Path.Combine(ConfigurationManager.AppSettings["RawReportPath"], fileName));
+                    //    excelPackage.SaveAs(excelFile);
+                    //}
+
+                    excelPackage.Save();
                 }
             }
+
             catch (Exception exc)
             {
                 //Util.Util.LogProceso(exc.Message);
