@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
@@ -13,6 +13,12 @@
     <PackageReference Include="EPPlus" Version="4.5.3.3" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0" />
     <PackageReference Include="System.Data.OleDb" Version="4.7.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="To.AtNinjas.Util">
+      <HintPath>..\..\..\..\NovusCustodyLoad\To.AtNinjas.WCFCustodyLoad\Libraries\To.AtNinjas.Util.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

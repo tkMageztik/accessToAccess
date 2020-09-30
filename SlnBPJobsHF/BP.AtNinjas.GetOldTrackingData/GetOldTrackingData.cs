@@ -8,12 +8,15 @@ using System.Drawing.Printing;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using To.AtNinjas.Util;
 
 namespace BP.AtNinjas.GetOldTrackingData
 {
     public class GetOldTrackingData
     {
         public string AccessConnection { get; set; }
+        public string AccessConnectionCanje { get; set; }
+
         private string RawReportPath { get; set; }
         private string TemplatePath { get; set; }
 
@@ -35,6 +38,15 @@ namespace BP.AtNinjas.GetOldTrackingData
                     AccessConnection = ConfigurationManager.ConnectionStrings["AccessConnection"].ToString();
                 }
 
+                if (ConfigurationManager.ConnectionStrings["AccessConnectionCanje"] == null)
+                {
+                    throw new ArgumentNullException("AccessConnectionCanje", "El AccessConnectionCanje no existe en el archivo de configuración");
+                }
+                else
+                {
+                    AccessConnectionCanje = ConfigurationManager.ConnectionStrings["AccessConnectionCanje"].ToString();
+                }
+
                 if (ConfigurationManager.AppSettings["RawReportPath"] == null)
                 {
                     throw new ArgumentNullException("RawReportPath", "El RawReportPath no existe en el archivo de configuración");
@@ -53,32 +65,36 @@ namespace BP.AtNinjas.GetOldTrackingData
                     TemplatePath = ConfigurationManager.AppSettings["TemplatePath"].ToString();
                 }
 
-                //Comex();
-                //Tesoreria();
-                //Leasing();
-                //Canje();
-                //BaseDeDatos();
+                Comex();
+                Tesoreria();
+                Leasing();
+                Canje();
+                BaseDeDatos();
                 AlianzasComerciales();
-                //Custodia();
-                ////Garantias();
-                //GestionDeSoluciones();
+                Custodia();
+                //Garantias();
+                GestionDeSoluciones();
 
             }
             catch (ArgumentNullException exc)
             {
+                Util.LogProceso(exc.Message);
                 //Falta algún valor del app config.
             }
             catch (NullReferenceException exc)
             {
                 //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
             }
             catch (FileNotFoundException exc)
             {
                 //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
             }
             catch (Exception exc)
             {
-
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
             }
 
         }
@@ -91,93 +107,273 @@ namespace BP.AtNinjas.GetOldTrackingData
             if (databaseFilePath == null) { throw new ArgumentNullException(keyName, "El " + keyName + " no existe en el archivo de configuración"); }
 
             if (!File.Exists(databaseFilePath))
-            { throw new FileNotFoundException("La base de datos " + keyName + " no existe en la ruta indicada", databaseFilePath); }
+            { throw new FileNotFoundException("La base de datos " + keyName + " no existe en la ruta indicada o no se cuenta con acceso", databaseFilePath); }
+            //else
+            //{
+            //    File.Copy(databaseFilePath, Path.Combine(RawReportPath, Path.GetFileName(databaseFilePath)));
+            //}
 
             return databaseFilePath;
+            //return Path.Combine(RawReportPath, Path.GetFileName(databaseFilePath));
         }
 
 
         private void Comex()
         {
-            string databasePath = ValidateConfig("Comex");
-            //ejecutar 6 am
-            string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
+            try
+            {
+                string databasePath = ValidateConfig("Comex");
+                //ejecutar 6 am
+                string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
 
-            string sql = "SELECT * FROM COMEX WHERE FORMAT(HORA_INGRESO,'yyyyMM') = '" + date + "'";
-            GenerateRawReport("RAW_COMEX_", GetData(databasePath, sql), "COMEX");
+                string sql = "SELECT * FROM COMEX WHERE FORMAT(HORA_INGRESO,'yyyyMM') = '" + date + "'";
+                GenerateRawReport("RAW_COMEX_", GetData(databasePath, sql), "COMEX");
 
-            sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMM') <= '" + date + "'";
-            GenerateRawReport("RAW_COMEX_", GetData(databasePath, sql), "AUTORIZACION");
+                sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMM') <= '" + date + "'";
+                GenerateRawReport("RAW_COMEX_", GetData(databasePath, sql), "AUTORIZACION");
+
+                Util.LogProceso("Terminó Comex");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private void Tesoreria()
         {
-            string databasePath = ValidateConfig("Tesoreria");
-            string date = string.Format("{0:yyyyMMdd}", DateTime.Now);
+            try
+            {
+                string databasePath = ValidateConfig("Tesoreria");
+                string date = string.Format("{0:yyyyMM}", DateTime.Now);
 
-            string sql = "SELECT * FROM PROCESAMIENTO WHERE FORMAT(HORA_INGRESO,'yyyyMMdd') <= '" + date + "'";
-            GenerateRawReport("RAW_TESORERIA_", GetData(databasePath, sql), "PROCESAMIENTO");
+                string sql = "SELECT * FROM PROCESAMIENTO WHERE FORMAT(HORA_INGRESO,'yyyyMM') >= '" + date + "'";
+                GenerateRawReport("RAW_TESORERIA_", GetData(databasePath, sql), "PROCESAMIENTO");
 
-            sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMMdd') <= '" + date + "'";
-            GenerateRawReport("RAW_TESORERIA_", GetData(databasePath, sql), "AUTORIZACION");
+                sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMM') >= '" + date + "'";
+                GenerateRawReport("RAW_TESORERIA_", GetData(databasePath, sql), "AUTORIZACION");
+
+                Util.LogProceso("Terminó Tesoreria");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private void Leasing()
         {
-            string databasePath = ValidateConfig("Leasing");
-            string date = string.Format("{0:yyyyMMdd}", DateTime.Now);
+            try
+            {
+                string databasePath = ValidateConfig("Leasing");
+                string date = string.Format("{0:/MM/yyyy}", DateTime.Now);
 
-            string sql = "SELECT * FROM PROCESAMIENTO WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "PROCESAMIENTO");
+                string sql = "SELECT * FROM PROCESAMIENTO WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "PROCESAMIENTO");
 
-            sql = "SELECT * FROM AUTORIZACION WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "AUTORIZACION");
+                sql = "SELECT * FROM AUTORIZACION WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "AUTORIZACION");
+
+                Util.LogProceso("Terminó Leasing");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private void Canje()
         {
-            //Tiene pass
-            string databasePath = ValidateConfig("Canje");
-            string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
+            try
+            {
+                //Tiene pass
+                string databasePath = ValidateConfig("Canje");
+                string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
-            //FECHA_HORA > CONTIENE ?
-            string sql = "SELECT * FROM ALIANZAS WHERE FECHA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_CANJE_", GetData(databasePath, sql), "?");
+                //FECHA_HORA > CONTIENE ?
+                string sql = "SELECT * FROM ALIANZAS WHERE FECHA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_CANJE_", GetData(databasePath, sql), "BASE");
+
+                Util.LogProceso("Terminó Canje");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private void BaseDeDatos()
         {
-            string databasePath = ValidateConfig("BaseDeDatos");
-            string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
-            //FECHA_HORA > CONTIENE ?
-            string sql = "SELECT * FROM Base WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("Reporte_BaseDeDatos_", GetData(databasePath, sql), "BASE");
+            try
+            {
+                string databasePath = ValidateConfig("BaseDeDatos");
+                string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
+                //FECHA_HORA > CONTIENE ?
+                string sql = "SELECT * FROM Base WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("Reporte_BaseDeDatos_", GetData(databasePath, sql), "BASE");
+
+                Util.LogProceso("Terminó BaseDeDatos");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private void AlianzasComerciales()
         {
-            string databasePath = ValidateConfig("AlianzasComerciales");
-            string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
+            try
+            {
+                string databasePath = ValidateConfig("AlianzasComerciales");
+                string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
 
-            string sql = "SELECT * FROM ALIANZAS WHERE FORMAT(FECHA,'yyyyMM') >= '" + date + "'";
-            //GenerateRawReport("Reporte_Alianzas_" + date, GetData(databasePath, sql), "RAW_ALIANZAS");
-            GenerateRawReport("Reporte_Alianzas_", GetData(databasePath, sql), "BASE");
+                string sql = "SELECT * FROM ALIANZAS WHERE FORMAT(FECHA,'yyyyMM') >= '" + date + "'";
+                //GenerateRawReport("Reporte_Alianzas_" + date, GetData(databasePath, sql), "RAW_ALIANZAS");
+                GenerateRawReport("Reporte_Alianzas_", GetData(databasePath, sql), "BASE");
+
+                Util.LogProceso("Terminó AlianzasComerciales");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private void Custodia()
         {
-            string databasePath = ValidateConfig("Custodia");
-            string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
+            try
+            {
+                string databasePath = ValidateConfig("Custodia");
+                string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
-            //FECHA_HORA > CONTIENE ?
-            string sql = "SELECT * FROM TRF WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "?");
+                //FECHA_HORA > CONTIENE ?
+                string sql = "SELECT * FROM TRF WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "TRF");
 
-            sql = "SELECT * FROM TRANSACCIONAL WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "?");
+                sql = "SELECT * FROM TRANSACCIONAL WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "TRANSACCIONAL");
 
-            sql = "SELECT * FROM REQUERIMIENTOS WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "?");
+                sql = "SELECT * FROM REQUERIMIENTOS WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "REQUERIMIENTOS");
+
+                Util.LogProceso("Terminó Custodia");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         //CONTROL DE OPERACIONES / MESA DE CONSULTA OPERATIVA
@@ -187,38 +383,69 @@ namespace BP.AtNinjas.GetOldTrackingData
         }
         private void GestionDeSoluciones()
         {
-            string databasePath = ValidateConfig("GestionDeSoluciones");
-            string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
+            try
+            {
+                string databasePath = ValidateConfig("GestionDeSoluciones");
+                string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
-            string sql = "SELECT * FROM Base1 WHERE FECHA_HORA LIKE '*" + date + "*'";
-            GenerateRawReport("RAW_GS_", GetData(databasePath, sql), "(?)");
+                string sql = "SELECT * FROM Base1 WHERE FECHA_HORA LIKE '*" + date + "*'";
+                GenerateRawReport("RAW_GS_", GetData(databasePath, sql), "BASE");
+
+                Util.LogProceso("Terminó GestionDeSoluciones");
+            }
+            catch (ArgumentNullException exc)
+            {
+                Util.LogProceso(exc.Message);
+                //Falta algún valor del app config.
+            }
+            catch (NullReferenceException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (FileNotFoundException exc)
+            {
+                //Falta algún valor del app config.
+                Util.LogProceso(exc.Message);
+            }
+            catch (Exception exc)
+            {
+                Util.LogProceso(exc.Message);
+                Util.LogProceso(exc.InnerException.Message);
+            }
         }
 
         private DataTable GetData(string databasePath, string sql)
         {
-            string cns = ConfigurationManager.ConnectionStrings["AccessConnection"].ToString().Replace("[databasePath]", databasePath);
+            string cns = AccessConnection.Replace("[databasePath]", databasePath);
+
+            if (databasePath.Contains("CANJE"))
+            {
+                cns = AccessConnectionCanje.Replace("[databasePath]", databasePath);
+            }
 
             OleDbConnection cn = new OleDbConnection(cns);
 
             try
             {
                 //revisar el uso de Dapper.
-                //cn.Open();
-                using (cn.OpenAsync())
+                cn.Open();
+                //using (cn.OpenAsync())
+                //{
+                using (OleDbCommand cmd = new OleDbCommand(sql, cn))
                 {
-                    using (OleDbCommand cmd = new OleDbCommand(sql, cn))
-                    {
-                        //Util.Util.LogProceso("paso x aqui en ExcecuteNonQuery Visado1 formato: ");
-                        var dt = new DataTable();
-                        dt.Load(cmd.ExecuteReader());
-                        return dt;
-                    }
+                    //Util.Util.LogProceso("paso x aqui en ExcecuteNonQuery Visado1 formato: ");
+                    var dt = new DataTable();
+                    dt.Load(cmd.ExecuteReader());
+                    return dt;
                 }
+                //}
             }
             catch (Exception exc)
             {
                 throw exc;
             }
+            finally { cn.Close(); }
         }
 
         private void GenerateRawReport(string reportName, DataTable dt, string sheet)
@@ -229,7 +456,10 @@ namespace BP.AtNinjas.GetOldTrackingData
 
                 FileInfo excelFile = new FileInfo(Path.Combine(this.RawReportPath, fileName));
 
-                File.Copy(Path.Combine(this.TemplatePath, reportName + "_Template"), excelFile.FullName, true);
+                if (reportName == "Reporte_Alianzas_")
+                {
+                    File.Copy(Path.Combine(this.TemplatePath, reportName + "_Template"), excelFile.FullName, true);
+                }
 
                 using (var excelPackage = new ExcelPackage(excelFile))
                 {
@@ -264,9 +494,13 @@ namespace BP.AtNinjas.GetOldTrackingData
 
                     ExcelRangeBase excelRangeBase = excelWorksheet.Cells["A1"].LoadFromDataTable(dt, true, OfficeOpenXml.Table.TableStyles.Light2);
 
-                    if(reportName == "Reporte_Alianzas_")
+                    if (reportName == "Reporte_Alianzas_")
                     {
                         AlianzasComerciales(excelPackage, excelRangeBase, excelWorksheet);
+                    }
+                    else if (reportName == "")
+                    {
+
                     }
 
                     excelPackage.Save();
