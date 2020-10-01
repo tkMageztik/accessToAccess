@@ -65,6 +65,13 @@ namespace BP.AtNinjas.GetOldTrackingData
                     TemplatePath = ConfigurationManager.AppSettings["TemplatePath"].ToString();
                 }
 
+                Util.LogProceso("Inicio el proceso");
+
+
+                //The problem with the LIKE operator is that the Access database engine(ACE, Jet, whatever) uses 
+                //    different wildcard characters depending on so - called ANSI Query Mode.Presumably you are 
+                //    using ANSI-92 Query Mode by implication of using SqlOleDb (but would you have known for sure ?)
+
                 Comex();
                 Tesoreria();
                 Leasing();
@@ -74,6 +81,8 @@ namespace BP.AtNinjas.GetOldTrackingData
                 Custodia();
                 //Garantias();
                 GestionDeSoluciones();
+
+                Util.LogProceso("Terminó el proceso");
 
             }
             catch (ArgumentNullException exc)
@@ -116,7 +125,6 @@ namespace BP.AtNinjas.GetOldTrackingData
             return databaseFilePath;
             //return Path.Combine(RawReportPath, Path.GetFileName(databaseFilePath));
         }
-
 
         private void Comex()
         {
@@ -200,10 +208,10 @@ namespace BP.AtNinjas.GetOldTrackingData
                 string databasePath = ValidateConfig("Leasing");
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now);
 
-                string sql = "SELECT * FROM PROCESAMIENTO WHERE FECHA_HORA LIKE '*" + date + "*'";
+                string sql = "SELECT * FROM PROCESAMIENTO WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "PROCESAMIENTO");
 
-                sql = "SELECT * FROM AUTORIZACION WHERE FECHA_HORA LIKE '*" + date + "*'";
+                sql = "SELECT * FROM AUTORIZACION WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "AUTORIZACION");
 
                 Util.LogProceso("Terminó Leasing");
@@ -239,7 +247,7 @@ namespace BP.AtNinjas.GetOldTrackingData
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
                 //FECHA_HORA > CONTIENE ?
-                string sql = "SELECT * FROM ALIANZAS WHERE FECHA LIKE '*" + date + "*'";
+                string sql = "SELECT * FROM ALIANZAS WHERE FECHA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_CANJE_", GetData(databasePath, sql), "BASE");
 
                 Util.LogProceso("Terminó Canje");
@@ -273,7 +281,7 @@ namespace BP.AtNinjas.GetOldTrackingData
                 string databasePath = ValidateConfig("BaseDeDatos");
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
                 //FECHA_HORA > CONTIENE ?
-                string sql = "SELECT * FROM Base WHERE FECHA_HORA LIKE '*" + date + "*'";
+                string sql = "SELECT * FROM Base WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("Reporte_BaseDeDatos_", GetData(databasePath, sql), "BASE");
 
                 Util.LogProceso("Terminó BaseDeDatos");
@@ -343,13 +351,13 @@ namespace BP.AtNinjas.GetOldTrackingData
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
                 //FECHA_HORA > CONTIENE ?
-                string sql = "SELECT * FROM TRF WHERE FECHA_HORA LIKE '*" + date + "*'";
+                string sql = "SELECT * FROM TRF WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "TRF");
 
-                sql = "SELECT * FROM TRANSACCIONAL WHERE FECHA_HORA LIKE '*" + date + "*'";
+                sql = "SELECT * FROM TRANSACCIONAL WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "TRANSACCIONAL");
 
-                sql = "SELECT * FROM REQUERIMIENTOS WHERE FECHA_HORA LIKE '*" + date + "*'";
+                sql = "SELECT * FROM REQUERIMIENTOS WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_CUSTODIA_", GetData(databasePath, sql), "REQUERIMIENTOS");
 
                 Util.LogProceso("Terminó Custodia");
@@ -388,7 +396,7 @@ namespace BP.AtNinjas.GetOldTrackingData
                 string databasePath = ValidateConfig("GestionDeSoluciones");
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
-                string sql = "SELECT * FROM Base1 WHERE FECHA_HORA LIKE '*" + date + "*'";
+                string sql = "SELECT * FROM Base1 WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_GS_", GetData(databasePath, sql), "BASE");
 
                 Util.LogProceso("Terminó GestionDeSoluciones");
@@ -458,7 +466,7 @@ namespace BP.AtNinjas.GetOldTrackingData
 
                 if (reportName == "Reporte_Alianzas_")
                 {
-                    File.Copy(Path.Combine(this.TemplatePath, reportName + "_Template"), excelFile.FullName, true);
+                    File.Copy(Path.Combine(this.TemplatePath, reportName + "Template"), excelFile.FullName, true);
                 }
 
                 using (var excelPackage = new ExcelPackage(excelFile))
