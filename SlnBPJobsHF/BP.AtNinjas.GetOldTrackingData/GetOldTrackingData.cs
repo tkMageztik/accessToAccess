@@ -17,6 +17,7 @@ namespace BP.AtNinjas.GetOldTrackingData
     {
         public string AccessConnection { get; set; }
         public string AccessConnectionCanje { get; set; }
+        public string ExcelConnection { get; set; }
 
         private string RawReportPath { get; set; }
         private string TemplatePath { get; set; }
@@ -47,6 +48,15 @@ namespace BP.AtNinjas.GetOldTrackingData
                 else
                 {
                     AccessConnectionCanje = ConfigurationManager.ConnectionStrings["AccessConnectionCanje"].ToString();
+                }
+
+                if (ConfigurationManager.ConnectionStrings["ExcelConnection"] == null)
+                {
+                    throw new ArgumentNullException("ExcelConnection", "El AccessConnectionCanje no existe en el archivo de configuración");
+                }
+                else
+                {
+                    ExcelConnection = ConfigurationManager.ConnectionStrings["ExcelConnection"].ToString();
                 }
 
                 if (ConfigurationManager.AppSettings["RawReportPath"] == null)
@@ -145,10 +155,10 @@ namespace BP.AtNinjas.GetOldTrackingData
                 //ejecutar 6 am
                 string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
 
-                string sql = "SELECT * FROM COMEX WHERE FORMAT(HORA_INGRESO,'yyyyMM') = '" + date + "'";
+                string sql = "SELECT * FROM COMEX WHERE FORMAT(HORA_INGRESO,'yyyyMM') >= '" + date + "'";
                 GenerateRawReport("RAW_COMEX_", GetData(databasePath, sql), "COMEX");
 
-                sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMM') <= '" + date + "'";
+                sql = "SELECT * FROM AUTORIZACION WHERE FORMAT(HORA_INGRESO,'yyyyMM') >= '" + date + "'";
                 GenerateRawReport("RAW_COMEX_", GetData(databasePath, sql), "AUTORIZACION");
 
                 Util.LogProceso("Terminó Comex");
@@ -180,7 +190,7 @@ namespace BP.AtNinjas.GetOldTrackingData
             try
             {
                 string databasePath = ValidateConfig("Tesoreria");
-                string date = string.Format("{0:yyyyMM}", DateTime.Now);
+                string date = string.Format("{0:yyyyMM}", DateTime.Now.AddDays(-1));
 
                 string sql = "SELECT * FROM PROCESAMIENTO WHERE FORMAT(HORA_INGRESO,'yyyyMM') >= '" + date + "'";
                 GenerateRawReport("RAW_TESORERIA_", GetData(databasePath, sql), "PROCESAMIENTO");
@@ -217,7 +227,7 @@ namespace BP.AtNinjas.GetOldTrackingData
             try
             {
                 string databasePath = ValidateConfig("Leasing");
-                string date = string.Format("{0:/MM/yyyy}", DateTime.Now);
+                string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
                 string sql = "SELECT * FROM PROCESAMIENTO WHERE FECHA_HORA LIKE '%" + date + "%'";
                 GenerateRawReport("RAW_LEASING_", GetData(databasePath, sql), "PROCESAMIENTO");
@@ -257,9 +267,11 @@ namespace BP.AtNinjas.GetOldTrackingData
                 string databasePath = ValidateConfig("Canje");
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
 
-                //FECHA_HORA > CONTIENE ?
                 string sql = "SELECT * FROM ALIANZAS WHERE FECHA LIKE '%" + date + "%'";
-                GenerateRawReport("Reporte_Canje_", GetData(databasePath, sql), "BASE");
+                DataTable dt = GetData(databasePath, sql);
+
+                GenerateRawReport("Reporte_Canje_", dt, "BASE");
+                GenerateBankReport("BO_SCO_Reporte_Canje.xlsx", dt, "Canje");
 
                 Util.LogProceso("Terminó Canje");
             }
@@ -291,6 +303,7 @@ namespace BP.AtNinjas.GetOldTrackingData
             {
                 string databasePath = ValidateConfig("BaseDeDatos");
                 string date = string.Format("{0:/MM/yyyy}", DateTime.Now.AddDays(-1));
+
                 //FECHA_HORA > CONTIENE ?
                 string sql = "SELECT * FROM Base WHERE FECHA_HORA LIKE '%" + date + "%' AND ESTADO IN ('ATENDIDO','OBSERVADO')";
                 GenerateRawReport("Reporte_BaseDeDatos_", GetData(databasePath, sql), "BASE");
@@ -471,6 +484,27 @@ namespace BP.AtNinjas.GetOldTrackingData
             finally { cn.Close(); }
         }
 
+        private DataTable GetDataExcel(string excelPath, string sql)
+        {
+            try
+            {
+                using (OleDbConnection cn = new OleDbConnection(ExcelConnection.Replace("[excelPath]", excelPath)))
+                {
+                    cn.Open();
+                    using (OleDbCommand cmd = new OleDbCommand(sql, cn))
+                    {
+                        var dt = new DataTable();
+                        dt.Load(cmd.ExecuteReader());
+                        return dt;
+                    }
+                }
+            }
+            catch (Exception exc)
+            {
+                throw exc;
+            }
+        }
+
         private void GenerateBankReport(string reportName, DataTable dt, string sheet)
         {
             try
@@ -571,6 +605,15 @@ namespace BP.AtNinjas.GetOldTrackingData
 
 
                     //}
+                    if(reportName == "RAW_COMEX_")
+                    {
+                        Comex(excelPackage);
+                    }
+
+                    if(reportName == "RAW_TESORERIA_")
+                    {
+                        Tesoreria(excelPackage);
+                    }
 
                     if (reportName == "Reporte_Alianzas_")
                     {
@@ -578,10 +621,10 @@ namespace BP.AtNinjas.GetOldTrackingData
                     }
                     else if (reportName == "Reporte_BaseDeDatos_")
                     {
-                        BaseDeDatos(excelPackage, excelRangeBase, excelWorksheet);
+                        BaseDeDatos(excelFile.FullName, excelPackage, excelRangeBase, excelWorksheet);
                     }
-                    else if(reportName == "Reporte_Canje_") {
-
+                    else if (reportName == "Reporte_Canje_")
+                    {
                         Canje(excelPackage, excelRangeBase, excelWorksheet);
                     }
 
@@ -597,7 +640,16 @@ namespace BP.AtNinjas.GetOldTrackingData
             }
 
         }
-
+        private void Comex(ExcelPackage excelPackage)
+        {
+            excelPackage.Workbook.Worksheets["COMEX"].Column(3).Style.Numberformat.Format = "dd/MM/yyyy HH:mm:ss";
+            excelPackage.Workbook.Worksheets["AUTORIZACION"].Column(3).Style.Numberformat.Format = "dd/MM/yyyy HH:mm:ss";
+        }
+        private void Tesoreria(ExcelPackage excelPackage)
+        {
+            excelPackage.Workbook.Worksheets["PROCESAMIENTO"].Column(3).Style.Numberformat.Format = "dd/MM/yyyy HH:mm:ss";
+            excelPackage.Workbook.Worksheets["AUTORIZACION"].Column(3).Style.Numberformat.Format = "dd/MM/yyyy HH:mm:ss";
+        }
         private void AlianzasComerciales(ExcelPackage excelPackage, ExcelRangeBase excelRangeBase, ExcelWorksheet excelWorksheet)
         {
             int nextRow = excelRangeBase.End.Row + 1;
@@ -650,7 +702,7 @@ namespace BP.AtNinjas.GetOldTrackingData
             //}
         }
 
-        private void BaseDeDatos(ExcelPackage excelPackage, ExcelRangeBase excelRangeBase, ExcelWorksheet excelWorksheet)
+        private void BaseDeDatos(string filePath, ExcelPackage excelPackage, ExcelRangeBase excelRangeBase, ExcelWorksheet excelWorksheet)
         {
             //int nextRow = excelRangeBase.End.Row + 1;
             //TODO: el idioma... 
@@ -673,32 +725,12 @@ namespace BP.AtNinjas.GetOldTrackingData
 
             excelPackage.Save();
 
-            DataTable sheetData = new DataTable();
-            try
-            {
-                using (OleDbConnection conn = this.returnConnection(""))
-                {
-                    conn.Open();
-                    // retrieve the data using data adapter
-                    OleDbDataAdapter sheetAdapter =
-                        new OleDbDataAdapter(
-                            "SELECT  CODIGO,CANT_OPERACIONES FROM (SELECT CODIGO,SUM(CANT_OPERACIONES) AS CANT_OPERACIONES " +
+            DataTable sheetData = GetDataExcel(filePath,
+                "SELECT  CODIGO,CANT_OPERACIONES FROM (SELECT CODIGO,SUM(CANT_OPERACIONES) AS CANT_OPERACIONES " +
                             "FROM [BASE$] GROUP BY CODIGO) A " +
                             "RIGHT JOIN [MATRIZ$] B " +
-                            "ON A.CODIGO = B.JEDOX"
-                            , conn);
+                            "ON A.CODIGO = B.JEDOX");
 
-                    //select * from [MATRIZ$]
-                    //select sum(CANT_OPERACIONES) AS T,CODIGO from[BASE$] group by CODIGO
-
-
-                    sheetAdapter.Fill(sheetData);
-                }
-            }
-            catch (Exception exc)
-            {
-
-            }
 
             excelPackage.Workbook.Worksheets["MATRIZ"].Cells[sheetData.Rows.Count + 3, 10].Value = "TOTAL:";
 
@@ -745,17 +777,11 @@ namespace BP.AtNinjas.GetOldTrackingData
                 excelPackage.Workbook.Worksheets["MATRIZ"].Cells[2 + i, 28].Value = excelWorksheet.Cells[nextRow, 5 + i].Value;
             }
 
-            excelPackage.Workbook.Worksheets["MATRIZ"].Cells[nextRow + 3,27].Value = "TOTAL";
+            excelPackage.Workbook.Worksheets["MATRIZ"].Cells[nextRow + 3, 27].Value = "TOTAL";
             excelPackage.Workbook.Worksheets["MATRIZ"].Cells[nextRow + 3, 28].Formula = "SUM(AB2:AB4)";
 
         }
 
 
-        private OleDbConnection returnConnection(string fileName)
-        {
-            return new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=D:\Usuarios\juarui\Desktop\Documentación RPA's\borrar\Reporte_BaseDeDatos_202009.xlsx;Extended Properties='Excel 12.0 Xml; HDR = YES'");
-            return new OleDbConnection("Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + fileName + "; Jet OLEDB:Engine Type=5;Extended Properties=\"Excel 8.0;\"");
-
-        }
     }
 }
